@@ -8,6 +8,8 @@ A ranked Elo system mod for Crab Game.
 - Custom chat commands (`!elo`, `!ranked`, `!help`).
 - Persistent player data storage.
 
+**Note:** The Elo calculation relies on GameState variables such as `"Playing"` and `"GameOver"`, and ranks players based on their elimination order. If your mod alters these aspects of the game, compatibility issues may arise. 
+
 ## Installation
 1. Download the latest `RankMod.dll` from the [Releases](https://github.com/GibsonFR/RankMod/releases) page.
 2. Place it in your `BepInEx/plugins/` folder.
