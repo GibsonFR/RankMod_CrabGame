@@ -15,7 +15,12 @@
 
         // Dictionnary
         public static Dictionary<ulong, PlayerManager> connectedPlayers = [];
+
+        // List
         public static List<ulong> playersInRanked = [];
+
+        // string
+        public static string commandSymbol;
 
         // ulong
         public static ulong clientId;

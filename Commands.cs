@@ -24,17 +24,15 @@
         {
             var adminCommands = new Dictionary<string, Action<string[], ulong>>
             {
-                { "!ranked", HandleRankedCommand },
-                { "/ranked", HandleRankedCommand }
+                { $"{commandSymbol}ranked", HandleRankedCommand },
+                { $"{commandSymbol}lastElo", HandleLastEloCommand }
             };
 
-            // Liste des commandes accessibles aux joueurs
             var playerCommands = new Dictionary<string, Action<string[], ulong>>
             {
-                { "!elo", HandleEloCommand },
-                { "/elo", HandleEloCommand },
-                { "!help", HandleHelpCommand },
-                { "/help", HandleHelpCommand }
+                { $"{commandSymbol}elo", HandleEloCommand },
+                { $"{commandSymbol}help", HandleHelpCommand },
+                { $"{commandSymbol}dev", HandleDevCommand }
             };
 
             if (isAdmin && adminCommands.TryGetValue(command, out var adminAction))
@@ -47,12 +45,12 @@
             }
             else
             {
-                SendPrivateMessage(senderId, "Unknown command! Try !help for a list of commands.");
+                SendPrivateMessage(senderId, $"Unknown command! Try {commandSymbol}help for a list of commands.");
             }
         }
 
 
-        static bool IsCommand(string msg) => msg.StartsWith("!") || msg.StartsWith("/");
+        static bool IsCommand(string msg) => msg.StartsWith(commandSymbol);
 
         public static void HandleRankedCommand(string[] arguments, ulong senderId)
         {
@@ -82,10 +80,14 @@
         public static ulong? GetPlayerSteamId(string username)
         {
             var playerEntry = Database._instance.GetAllPlayers()
-                .FirstOrDefault(player => player.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(player =>
+                    player.Properties.TryGetValue("Username", out var storedUsername) &&
+                    storedUsername is string storedName &&
+                    storedName.Equals(username, StringComparison.OrdinalIgnoreCase));
 
             return playerEntry?.ClientId;
         }
+
 
         public static PlayerManager GetPlayer(ulong steamId)
         {
@@ -101,7 +103,7 @@
         {
             if (arguments.Length > 2)
             {
-                SendInvalidCommandMessage(senderId, "!elo | !elo #playerNumber");
+                SendInvalidCommandMessage(senderId, $"{commandSymbol}elo | {commandSymbol}elo #playerNumber");
                 return;
             }
 
@@ -122,9 +124,19 @@
 
             if (playerData != null)
             {
+                // Retrieve Username and Elo dynamically from the Properties dictionary
+                string username = playerData.Properties.TryGetValue("Username", out var storedUsername) && storedUsername is string name
+                    ? name
+                    : "Unknown";
+
+                float elo = playerData.Properties.TryGetValue("Elo", out var storedElo) && storedElo is float eloValue
+                    ? eloValue
+                    : 1000f;
+
+                // Construct the message
                 string message = (recipientId == playerId)
-                    ? $"{playerData.Username}, your Elo is: {playerData.Elo}"
-                    : $"{playerData.Username} Elo: {playerData.Elo}";
+                    ? $"{username}, your Elo is: {elo}"
+                    : $"{username} Elo: {elo}";
 
                 SendPrivateMessage(recipientId, message);
             }
@@ -134,42 +146,134 @@
             }
         }
 
-        private static void HandleHelpCommand(string[] arguments, ulong senderId)
+
+        private static void HandleLastEloCommand(string[] arguments, ulong senderId)
         {
-            string lineBreaks = string.Concat(Enumerable.Repeat("|\n", 6)); // Générer 9 sauts de ligne
-
-            // Liste des commandes et descriptions
-            List<string> helpPages = new()
+            if (arguments.Length > 2)
             {
-                lineBreaks + "**Help Page 1/2**\n" +
-                "!help\n"  +
-                "!elo\n"   +
-                "-- --\n"  +
-                "-- --\n"  +
-                "-- --\n"  +
-                "-- --\n"  +
-                "-- --\n", 
-
-                lineBreaks + "**Help Page 2/2**\n" +
-                "-- --\n" +
-                "-- --\n" +
-                "-- --\n" +
-                "-- --\n" +
-                "-- --\n" +
-                "-- --\n" +
-                "-- --"
-            };
-
-            int requestedPage = 1;
-            if (arguments.Length == 2 && int.TryParse(arguments[1], out int pageNumber))
-            {
-                requestedPage = Math.Clamp(pageNumber, 1, helpPages.Count);
+                SendInvalidCommandMessage(senderId, $"{commandSymbol}lastElo | {commandSymbol}lastElo #playerNumber | {commandSymbol}lastElo *");
+                return;
             }
 
-            SendPrivateMessage(senderId, helpPages[requestedPage - 1]);
+            if (arguments.Length == 1)
+            {
+                // Restore the sender's last Elo
+                RestoreLastElo(senderId);
+            }
+            else if (arguments[1] == "*")
+            {
+                // Restore last Elo for all connected players
+                foreach (var player in connectedPlayers.Keys)
+                {
+                    RestoreLastElo(player);
+                }
+                SendPrivateMessage(senderId, "[RankMod] LastElo has been restored for all players.");
+            }
+            else
+            {
+                // Find the player by ID or username and restore their LastElo
+                ulong targetPlayerId = CommandPlayerFinder(arguments[1]) ?? 0;
+
+                if (targetPlayerId == 0)
+                {
+                    SendPrivateMessage(senderId, "Player not found!");
+                    return;
+                }
+
+                RestoreLastElo(targetPlayerId);
+                SendPrivateMessage(senderId, $"[RankMod] LastElo has been restored for {arguments[1]}.");
+            }
+        }
+
+        private static void RestoreLastElo(ulong playerId)
+        {
+            PlayerData playerData = Database._instance?.GetPlayerData(playerId);
+
+            if (playerData != null)
+            {
+                // Retrieve LastElo dynamically from the Properties dictionary
+                float lastElo = playerData.Properties.TryGetValue("LastElo", out var storedLastElo) && storedLastElo is float lastEloValue
+                    ? lastEloValue
+                    : 1000f; // Default fallback value if LastElo is missing
+
+                // Update Elo with LastElo
+                Database._instance.SetData(playerId, "Elo", lastElo);
+                SendPrivateMessage(playerId, $"[RankMod] Your Elo has been restored to {lastElo}.");
+            }
+            else
+            {
+                SendPrivateMessage(playerId, "[RankMod] No LastElo data available.");
+            }
         }
 
 
+
+        private static void HandleHelpCommand(string[] arguments, ulong senderId)
+        {
+            bool isAdmin = senderId == clientId; // Check if sender is an admin
+            int commandsPerPage = 5;
+
+            // Dictionary of all available commands
+            Dictionary<string, string> playerCommands = new()
+            {
+                { $"{commandSymbol}help", "Display all commands" },
+                { $"{commandSymbol}elo", "Show elo ranking" },
+                { $"{commandSymbol}dev", "Show developer info" }
+            };
+
+            Dictionary<string, string> adminCommands = new()
+            {
+                { $"{commandSymbol}ranked", "Toggle ranked mode on/off" },
+                { $"{commandSymbol}lastElo", "Restore last elo" }
+            };
+
+            // Merge player and admin commands if the sender is an admin
+            Dictionary<string, string> availableCommands = new(playerCommands);
+            if (isAdmin)
+            {
+                foreach (var cmd in adminCommands)
+                    availableCommands[cmd.Key] = cmd.Value;
+            }
+
+            // Automatically split commands into pages (5 commands per page)
+            List<List<KeyValuePair<string, string>>> helpPages = availableCommands
+                .Select((cmd, index) => new { cmd, index })
+                .GroupBy(x => x.index / commandsPerPage)
+                .Select(g => g.Select(x => x.cmd).ToList())
+                .ToList();
+
+            // Validate page number
+            int requestedPage = 1;
+            if (arguments.Length == 2)
+            {
+                if (!int.TryParse(arguments[1], out requestedPage) || requestedPage < 1 || requestedPage > helpPages.Count)
+                {
+                    SendPrivateMessage(senderId, $"Invalid page number! Use {commandSymbol}help 1 to {commandSymbol}help {helpPages.Count}.");
+                    return;
+                }
+            }
+
+            // Send the header
+            SendPrivateMessage(senderId, $"**[RankMod] HELP PAGE {requestedPage}/{helpPages.Count} [RankMod]**");
+
+            // Send each command as a separate message
+            foreach (var command in helpPages[requestedPage - 1])
+            {
+                SendPrivateMessage(senderId, $"{command.Key} - {command.Value}");
+            }
+        }
+
+
+
+        private static void HandleDevCommand(string[] arguments, ulong senderId)
+        {
+            string devInfo = "\n" +
+                             "[RankMod] Developed by Gibson\n" +
+                             "GitHub: GibsonFR\n" +
+                             "Discord: gib_son";
+
+            SendPrivateMessage(senderId, devInfo);
+        }
 
         private static void SendInvalidCommandMessage(ulong recipientId, string usage)
         {

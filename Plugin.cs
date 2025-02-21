@@ -18,7 +18,7 @@ global using static RankMod.Utility;
 
 namespace RankMod
 {
-    [BepInPlugin("D8E1467C-3801-44A2-B081-9D40D920778F", "RankMod", "1.0.0")]
+    [BepInPlugin("D8E1467C-3801-44A2-B081-9D40D920778F", "RankMod", "1.1.0")]
     public class Plugin : BasePlugin
     {
         public override void Load()
@@ -43,6 +43,9 @@ namespace RankMod
             CreateFile(configFilePath);
             SetConfigFile(configFilePath);
 
+            Database.ConvertOldDataFile(playersDataFilePath);
+            Database.UpdateProperties(playersDataFilePath);
+
             Log.LogInfo("Mod created by Gibson, discord : gib_son, github : GibsonFR");
         }
 
@@ -65,7 +68,7 @@ namespace RankMod
         [HarmonyPatch(typeof(LobbySettings), "Method_Public_Void_PDM_2")]
         [HarmonyPatch(typeof(MonoBehaviourPublicTeplUnique), "Method_Private_Void_PDM_32")]
         [HarmonyPrefix]
-        public static bool Prefix(System.Reflection.MethodBase __originalMethod)
+        public static bool Prefix(MethodBase __originalMethod)
         {
             return false;
         }

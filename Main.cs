@@ -66,12 +66,14 @@ namespace RankMod
             // Use the shared DatabaseManager instance
             var dbManager = Database._instance;
 
-            dbManager.AddNewPlayer(new PlayerData
-            {
-                ClientId = steamId,
-                Username = SteamFriends.GetFriendPersonaName((CSteamID)steamId).Replace("|", ""),
-                Elo = 1000,
-            });
+            // Create a new player with dynamic property initialization
+            var newPlayer = new PlayerData { ClientId = steamId };
+
+            // Set initial properties dynamically
+            newPlayer.Properties["Username"] = SteamFriends.GetFriendPersonaName((CSteamID)steamId).Replace("|", "");
+
+            dbManager.AddNewPlayer(newPlayer);
         }
+
     }
 }

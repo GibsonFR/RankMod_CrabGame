@@ -18,7 +18,9 @@ namespace RankMod
                 if (!gameHasStarted)
                 {
                     SetGameVariables();
-                    SendServerMessage($"[RankMod] Average elo : {(int)averageGameElo} | Players : {playersThisGame}");
+
+                    foreach (var player in connectedPlayers) SendPrivateMessage(player.Key, $"[RankMod] Average elo : {(int)averageGameElo} | Players : {playersThisGame}");
+                    
                 }
             }
 
@@ -31,7 +33,7 @@ namespace RankMod
                         if (IsPlayerInactive(player)) continue;
 
                         ulong playerId = player.value.steamProfile.m_SteamID;
-                        UpdateElo(playerId, 0);
+                        UpdateElo(playerId);
                         playersInRanked.Remove(playerId);
                         break;
                     }
@@ -54,7 +56,7 @@ namespace RankMod
         {
             if (!gameHasStarted || !IsHost() || !ranked) return;
 
-            UpdateElo(__0, 0);
+            UpdateElo(__0);
             playersInRanked.Remove(__0);
         }
 
@@ -65,7 +67,7 @@ namespace RankMod
             if (!gameHasStarted || !playersInRanked.Contains((ulong)__0) || !IsHost() || !ranked) return;
 
 
-            UpdateElo((ulong)__0, 0);
+            UpdateElo((ulong)__0);
             playersInRanked.Remove((ulong)__0);
         }
     }
@@ -97,7 +99,18 @@ namespace RankMod
         public static float CalculateTotalElo()
         {
             return GetPlayerAliveList()
-                .Select(id => Database._instance?.GetPlayerData(id)?.Elo ?? 1000)
+                .Select(id =>
+                {
+                    var playerData = Database._instance?.GetPlayerData(id);
+
+                    // Ensure Elo is retrieved properly from the Properties dictionary
+                    if (playerData?.Properties.TryGetValue("Elo", out object storedElo) == true && storedElo is float eloValue)
+                    {
+                        return eloValue;
+                    }
+
+                    return 1000f; // Default fallback
+                })
                 .Sum();
         }
 
@@ -106,11 +119,21 @@ namespace RankMod
             return GetPlayerAliveList()
                 .Select(id =>
                 {
-                    float playerElo = Database._instance?.GetPlayerData(id)?.Elo ?? 1000;
+                    var playerData = Database._instance?.GetPlayerData(id);
+                    float playerElo = 1000f; // Default value
+
+                    // Retrieve Elo if available
+                    if (playerData?.Properties.TryGetValue("Elo", out object storedElo) == true && storedElo is float eloValue)
+                    {
+                        playerElo = eloValue;
+                    }
+
                     return WinExpectative(playerElo, averageGameElo);
                 })
                 .Sum();
         }
+
+
 
         public static float WinExpectative(float playerElo, float averageGameElo) => 1.0f / (1.0f + (float)Math.Pow(10.0, (averageGameElo - playerElo) / eloScalingFactor));
         public static float GetMalusPercent(float rank) => ((rank - (float)1) / ((float)playersThisGame - (float)1)) / ((float)playersThisGame / (float)2);
@@ -126,29 +149,47 @@ namespace RankMod
                 .ToList();
         }
 
-        public static void UpdateElo(ulong steamId, int rankBonus)
+        public static void UpdateElo(ulong steamId)
         {
-            float playerElo = Database._instance?.GetPlayerData(steamId)?.Elo ?? 1000;
+            // Retrieve player data dynamically
+            var playerData = Database._instance?.GetPlayerData(steamId);
 
+            if (playerData == null)
+            {
+                SendPrivateMessage(steamId, "[RankMod] Player data not found.");
+                return;
+            }
+
+            // Retrieve Elo and LastElo dynamically with default fallback
+            float playerElo = playerData.Properties.TryGetValue("Elo", out var storedElo) && storedElo is float elo
+                ? elo
+                : (playerData.Properties.TryGetValue("LastElo", out var storedLastElo) && storedLastElo is float lastElo ? lastElo : 1000f);
+
+            // Store the current Elo as LastElo before updating
+            Database._instance.SetData(steamId, "LastElo", playerElo);
+
+            // Calculate malus
             float malus = GetMalus();
 
             int alivePlayers = GetPlayerAliveList().Count;
-
-            float rank = alivePlayers + rankBonus;
+            float rank = alivePlayers;
             if (rank == 0) return;
 
             float malusPercent = GetMalusPercent(rank);
 
+            // Calculate new Elo
             float eloGain = kFactor * (1 - (malusPercent * 2) - WinExpectative(playerElo, averageGameElo));
             eloGain += malus * malusPercent;
+            playerElo = Math.Max(100, playerElo + eloGain);
 
-            playerElo = Math.Max(100, playerElo + eloGain); 
-
+            // Send update message
             string sign = eloGain >= 0 ? "+" : "";
-            SendPrivateMessage(steamId, $"[{sign}{eloGain:F1}] --> Your Elo: {playerElo:F1}");
+            SendPrivateMessage(steamId, $"[top{rank}/{playersThisGame}] [{sign}{eloGain:F1}] --> Your Elo: {playerElo:F1}");
 
+            // Update Elo in database
             Database._instance.SetData(steamId, "Elo", playerElo);
         }
+
 
     }
 }

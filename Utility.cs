@@ -84,9 +84,10 @@
             return GameManager.Instance.gameMode.modeState.ToString();
         }
 
+        //Thanks to github.com/lammas321
         public static void SendPrivateMessage(ulong clientId, string message)
         {
-            string privateMessage = $"|{message}";
+            string privateMessage = $"{message}";
             List<byte> bytes = [];
             bytes.AddRange(BitConverter.GetBytes((int)ServerSendType.sendMessage));
             bytes.AddRange(BitConverter.GetBytes((ulong)1));
@@ -107,6 +108,10 @@
             foreach (byte b in bytes)
                 packet.field_Private_List_1_Byte_0.Add(b);
 
+            byte[] clientIdBytes = BitConverter.GetBytes(clientId);
+            for (int i = 0; i < clientIdBytes.Length; i++)
+                packet.field_Private_List_1_Byte_0[i + 8] = clientIdBytes[i];
+
             SteamPacketManager.SendPacket(new CSteamID(clientId), packet, 8, SteamPacketDestination.ToClient);
         }
 
@@ -123,11 +128,12 @@
         {
             Dictionary<string, string> configDefaults = new()
             {
-                {"version", "v1.0.0"},
+                {"version", "v1.1.0"},
                 {"rankedOnStart", "true"},
                 {"initialElo", "1000"},
                 {"kFactor", "32"},
                 {"eloScalingFactor", "100"},
+                {"commandSymbol", "." }
 
             };
 
@@ -190,6 +196,8 @@
 
             parseSuccess = float.TryParse(config["eloScalingFactor"], out resultFloat);
             eloScalingFactor = parseSuccess ? resultFloat : 100;
+
+            commandSymbol = config["commandSymbol"];
         }
     }
 }
