@@ -6,7 +6,7 @@ A ranked Elo system mod for Crab Game.
 - Ranked matchmaking using Elo-based calculations.
 - Real-time Elo updates based on player performance.
 - Persistent player data storage with automatic migration for future updates.
-- Custom chat commands (`!elo`, `!ranked`, `!help`, `!lastElo`, `!dev`).
+- Custom chat commands (`.elo`, `.ranked`, `.help`, `.lastElo`, `.dev`).
 - Dynamic database management that adds missing properties and removes deprecated ones.
 
 **Note:** The Elo calculation relies on GameState variables such as `"Playing"` and `"GameOver"`, and ranks players based on their elimination order. If your mod alters these aspects of the game, compatibility issues may arise. 
