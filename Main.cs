@@ -69,7 +69,7 @@ namespace RankMod
             dbManager.AddNewPlayer(new PlayerData
             {
                 ClientId = steamId,
-                Username = SteamFriends.GetFriendPersonaName((CSteamID)steamId),
+                Username = SteamFriends.GetFriendPersonaName((CSteamID)steamId).Replace("|", ""),
                 Elo = 1000,
             });
         }
