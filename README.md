@@ -17,11 +17,11 @@ A ranked Elo system mod for Crab Game.
 3. Start the game, and the mod will be activated automatically.
 
 ## Commands
-- `!elo` → Displays your current Elo rating.
-- `!ranked` → Enables or disables ranked mode.
-- `!help` → Lists available commands.
-- `!lastElo [player]` → Restores the previous Elo of a specific player or all players (`*`).
-- `!dev` → Displays information about the developer.
+- `.elo` → Displays your current Elo rating.
+- `.ranked` → Enables or disables ranked mode.
+- `.help` → Lists available commands.
+- `.lastElo [player]` → Restores the previous Elo of a specific player or all players (`*`).
+- `.dev` → Displays information about the developer.
 
 ## Configuration
 - Modify the `config.txt` file located in `BepInEx/plugins/RankMod/` (if you know what you're doing).
