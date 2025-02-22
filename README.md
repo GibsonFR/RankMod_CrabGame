@@ -3,57 +3,74 @@
 A ranked Elo system mod for Crab Game.
 
 ## Features
-- Ranked matchmaking using Elo-based calculations.
-- Real-time Elo updates based on player performance.
-- Persistent player data storage with automatic migration for future updates.
-- Custom chat commands (`.elo`, `.ranked`, `.help`, `.lastElo`, `.dev`).
-- Dynamic database management that adds missing properties and removes deprecated ones.
+- **Ranked matchmaking** using an **Elo-based** rating system.
+- **Real-time Elo updates** based on player performance.
+- **Automatic database migration**, ensuring compatibility with future updates.
+- **New Elo-based ranking system** (Bronze, Silver, Gold, etc.).
+- **Full support for mods like TagMod and Infection** (multi-ranking adjustments).
+- **Leaderboard system** to track top players.
+- **Optimized performance** and improved ranked matchmaking.
+- **Customizable chat commands** (`.elo`, `.ranked`, `.help`, `.lastElo`, `.dev`, `.leaderboard`).
 
-**Note:** The Elo calculation relies on GameState variables such as `"Playing"` and `"GameOver"`, and ranks players based on their elimination order. If your mod alters these aspects of the game, compatibility issues may arise. 
+**Note:**  
+The Elo system is based on `"Playing"` and `"GameOver"` states, ranking players according to their elimination order. Mods that modify these aspects may cause compatibility issues.
+
+---
 
 ## Installation
 1. Download the latest `RankMod.dll` from the [Releases](https://github.com/GibsonFR/RankMod_CrabGame/releases) page.
-2. Place it in your `BepInEx/plugins/` folder.
-3. Start the game, and the mod will be activated automatically.
+2. Place the file in your `BepInEx/plugins/` folder.
+3. Launch the game—RankMod will activate automatically.
+
+---
 
 ## Commands
-- `.elo` → Displays your current Elo rating.
-- `.ranked` → Enables or disables ranked mode.
-- `.help` → Lists available commands.
-- `.lastElo [player]` → Restores the previous Elo of a specific player or all players (`*`).
-- `.dev` → Displays information about the developer.
+- **`.elo`** → Displays your current Elo rating.
+- **`.ranked`** → Toggles ranked mode on/off.
+- **`.help`** → Lists all available commands.
+- **`.lastElo [player]`** → Restores a player's last Elo (`*` restores for all players).
+- **`.dev`** → Displays developer information.
+- **`.leaderboard`** → Shows the top-ranked players.
+
+---
 
 ## Configuration
-- Modify the `config.txt` file located in `BepInEx/plugins/RankMod/` (if you know what you're doing).
-- Editable settings include:
+- Edit the `config.txt` file in `BepInEx/plugins/RankMod/`.
+- Customizable settings include:
   - Initial Elo value
-  - K-Factor adjustment
+  - K-Factor adjustments
   - Rank mode toggle
-  - **Customizable command symbol** (e.g., `!`, `/`, etc.)
+  - **Customizable command symbol** (e.g., `!`, `/`, `.`).
+
+---
 
 ## Latest Updates
-- **Automatic database migration** to support new property formats.
-- **New `lastElo` command** to restore previous Elo for individual players or all players.
-- **New `dev` command** to display developer information.
-- **Help command redesign** for improved readability.
-- **New configuration option** to change the command symbol.
-- **Command messages are now light blue and smaller**, thanks to [lammas321](https://github.com/lammas321).
-- **Optimized database handling** to prevent unnecessary file writes and ensure structure integrity.
+- **Added `leaderboard` command** → View the highest-ranked players.
+- **New Elo-based ranking system** → Players are assigned **Bronze, Silver, Gold, Platinum, Diamond, Master, Grandmaster, Challenger** ranks.
+- **Improved Elo calculations** → Now supports **multi-ranking** (players tied in the same position get proper adjustments).
+- **Full compatibility with mods like TagMod and Infection**.
+- **Fixed `ranked` command** → Ensures proper toggling.
+- **Optimized database handling** → Reduces unnecessary file writes for better performance.
+
+---
 
 ## Upcoming Features
-This is an evolving project, and additional features will be added soon:
-- **Leaderboard** to display the highest-ranked players.
-- **Rank-based tiers** (Bronze, Silver, Gold, etc.) based on Elo.
-- **Expanded player statistics**, including win/loss ratios and performance graphs.
-- **More in-depth matchmaking mechanics** for ranked mode.
-- **UI enhancements** to integrate ranking details directly into the game.
+- **More detailed player statistics** (win/loss ratio, performance graphs).
+- **Enhanced matchmaking mechanics** for ranked mode.
+- **UI improvements** to display Elo and rank in-game.
+
+---
 
 ## Known Issues
-- Elo may not update correctly if two players die simultaneously during Game Over.
+- Elo updates may not work correctly if two players die at the exact same time.
+
+---
 
 ## Contribution
-- Issues and feature requests can be submitted via GitHub Issues.
-- Pull requests are welcome for improvements and bug fixes.
+- Report issues or request features via [GitHub Issues](https://github.com/GibsonFR/RankMod_CrabGame/issues).
+- Contributions via pull requests are welcome.
+
+---
 
 ## Contact
 **Developer:** Gibson  
