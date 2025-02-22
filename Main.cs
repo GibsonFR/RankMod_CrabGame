@@ -29,7 +29,7 @@ namespace RankMod
         [HarmonyPostfix]
         public static void OnSteamManagerAwakePost(SteamManager __instance)
         {
-            clientId = (ulong)__instance.field_Private_CSteamID_0; // Get&Set the steamId of the mod owner
+            if (clientId < 1) clientId = (ulong)__instance.field_Private_CSteamID_0; // Get&Set the steamId of the mod owner
         }
 
         [HarmonyPatch(typeof(LobbyManager), nameof(LobbyManager.AddPlayerToLobby))]

@@ -32,6 +32,6 @@
         public static float kFactor, totalGameExpectative, averageGameElo, eloScalingFactor, initialElo;
 
         // bool
-        public static bool ranked, gameHasStarted;
+        public static bool ranked, gameHasStarted, configStart = true;
     }
 }

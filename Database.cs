@@ -267,6 +267,7 @@
             { "Username", "Unknown" },
             { "Elo", 1000f },
             { "LastElo", 1000f },
+            { "Rank", "Unranked" }
         };
 
         public PlayerData()

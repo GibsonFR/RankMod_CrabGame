@@ -13,8 +13,8 @@
                 string[] parts = __1.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length == 0) return false;
 
-                if (__0 == clientId) ExecuteCommand(parts[0], parts, __0, isAdmin: true);
-                else ExecuteCommand(parts[0], parts, __0, isAdmin: false);
+                if (__0 == clientId) ExecuteCommand(parts[0], parts, __0, true);
+                else ExecuteCommand(parts[0], parts, __0, false);
                 return false;
             }
             return true;
@@ -31,8 +31,10 @@
             var playerCommands = new Dictionary<string, Action<string[], ulong>>
             {
                 { $"{commandSymbol}elo", HandleEloCommand },
+                { $"{commandSymbol}rank", HandleEloCommand },
                 { $"{commandSymbol}help", HandleHelpCommand },
-                { $"{commandSymbol}dev", HandleDevCommand }
+                { $"{commandSymbol}dev", HandleDevCommand },
+                { $"{commandSymbol}leaderboard", HandleLeaderboardCommand },
             };
 
             if (isAdmin && adminCommands.TryGetValue(command, out var adminAction))
@@ -129,14 +131,18 @@
                     ? name
                     : "Unknown";
 
+                string rank = playerData.Properties.TryGetValue("Rank", out var storedRank) && storedRank is string rankName
+                    ? rankName
+                    : "Unranked";
+
                 float elo = playerData.Properties.TryGetValue("Elo", out var storedElo) && storedElo is float eloValue
                     ? eloValue
                     : 1000f;
 
                 // Construct the message
                 string message = (recipientId == playerId)
-                    ? $"{username}, your Elo is: {elo}"
-                    : $"{username} Elo: {elo}";
+                    ? $"[{rank}] {username}, your Elo is: {elo}"
+                    : $"[{rank}] {username} Elo: {elo}";
 
                 SendPrivateMessage(recipientId, message);
             }
@@ -206,7 +212,76 @@
             }
         }
 
+        private static void HandleLeaderboardCommand(string[] arguments, ulong senderId)
+        {
+            if (arguments.Length == 1)
+            {
+                SendPlayerRank(senderId, senderId);
+            }
+            else if (arguments.Length == 2)
+            {
+                if (arguments[1] == "top")
+                {
+                    SendTop5Leaderboard(senderId);
+                }
+                else
+                {
+                    ulong targetPlayerId = CommandPlayerFinder(arguments[1]) ?? 0;
+                    if (targetPlayerId == 0)
+                    {
+                        SendPrivateMessage(senderId, "Player not found!");
+                        return;
+                    }
+                    SendPlayerRank(senderId, targetPlayerId);
+                }
+            }
+            else
+            {
+                SendInvalidCommandMessage(senderId, "!leaderboard | !leaderboard player | !leaderboard top");
+            }
+        }
 
+        private static void SendPlayerRank(ulong recipientId, ulong playerId)
+        {
+            var leaderboard = Database._instance?.GetAllPlayers()
+                .Where(p => p.Properties.TryGetValue("Elo", out var eloValue) && eloValue is float)
+                .OrderByDescending(p => (float)p.Properties["Elo"])
+                .Select((player, index) => new { player.ClientId, Rank = index + 1 })
+                .ToList();
+
+            var playerEntry = leaderboard?.FirstOrDefault(p => p.ClientId == playerId);
+            if (playerEntry != null)
+            {
+                SendPrivateMessage(recipientId, $"[{Database._instance?.GetPlayerData(recipientId).Properties["Rank"]}] {Database._instance?.GetPlayerData(recipientId).Properties["Username"]} leaderboard rank: {playerEntry.Rank}/{Database._instance?.GetAllPlayers().Count()}");
+            }
+            else
+            {
+                SendPrivateMessage(recipientId, "Player not found in the leaderboard.");
+            }
+        }
+
+        private static void SendTop5Leaderboard(ulong recipientId)
+        {
+            var leaderboard = Database._instance?.GetAllPlayers()
+                .Where(p => p.Properties.TryGetValue("Elo", out var eloValue) && eloValue is float)
+                .OrderByDescending(p => (float)p.Properties["Elo"])
+                .Take(5)
+                .Select((player, index) => new { Top = index + 1, Rank = player.Properties["Rank"], Username = player.Properties["Username"], Elo = player.Properties["Elo"] })
+                .ToList();
+
+            if (leaderboard != null && leaderboard.Count > 0)
+            {
+                SendPrivateMessage(recipientId, "[RankMod] Top 5 Leaderboard:");
+                foreach (var entry in leaderboard)
+                {
+                    SendPrivateMessage(recipientId, $"top{entry.Top} [{entry.Rank}] {entry.Username}: {entry.Elo:F1} Elo");
+                }
+            }
+            else
+            {
+                SendPrivateMessage(recipientId, "No leaderboard data available.");
+            }
+        }
 
         private static void HandleHelpCommand(string[] arguments, ulong senderId)
         {
@@ -218,7 +293,8 @@
             {
                 { $"{commandSymbol}help", "Display all commands" },
                 { $"{commandSymbol}elo", "Show elo ranking" },
-                { $"{commandSymbol}dev", "Show developer info" }
+                { $"{commandSymbol}dev", "Show developer info" },
+                { $"{commandSymbol}leaderboard", "Display top players" },
             };
 
             Dictionary<string, string> adminCommands = new()

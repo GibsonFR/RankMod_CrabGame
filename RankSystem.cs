@@ -19,23 +19,22 @@ namespace RankMod
                 {
                     SetGameVariables();
 
-                    foreach (var player in connectedPlayers) SendPrivateMessage(player.Key, $"[RankMod] Average elo : {(int)averageGameElo} | Players : {playersThisGame}");
+                    foreach (var player in connectedPlayers) SendPrivateMessage(player.Key, $"[RankMod] Avg elo : {(int)averageGameElo} ({RankName.GetRankFromElo(averageGameElo)}) | Players : {playersThisGame}");
                     
                 }
             }
 
             if (GetGameState() == "GameOver" && gameHasStarted)
             {
-                foreach (var player in GameManager.Instance.activePlayers)
+                List<ulong> playersAliveList = GetPlayerAliveList();
+                foreach (var player in playersAliveList)
                 {
                     try
                     {
-                        if (IsPlayerInactive(player)) continue;
+                        if (playersAliveList.Count > 1) UpdateElo(player, true);                    
+                        else UpdateElo(player, false);
 
-                        ulong playerId = player.value.steamProfile.m_SteamID;
-                        UpdateElo(playerId);
-                        playersInRanked.Remove(playerId);
-                        break;
+                        playersInRanked.Remove(player);
                     }
                     catch { }
                 }
@@ -56,7 +55,7 @@ namespace RankMod
         {
             if (!gameHasStarted || !IsHost() || !ranked) return;
 
-            UpdateElo(__0);
+            UpdateElo(__0, false);
             playersInRanked.Remove(__0);
         }
 
@@ -67,7 +66,7 @@ namespace RankMod
             if (!gameHasStarted || !playersInRanked.Contains((ulong)__0) || !IsHost() || !ranked) return;
 
 
-            UpdateElo((ulong)__0);
+            UpdateElo((ulong)__0, false);
             playersInRanked.Remove((ulong)__0);
         }
     }
@@ -137,6 +136,7 @@ namespace RankMod
 
         public static float WinExpectative(float playerElo, float averageGameElo) => 1.0f / (1.0f + (float)Math.Pow(10.0, (averageGameElo - playerElo) / eloScalingFactor));
         public static float GetMalusPercent(float rank) => ((rank - (float)1) / ((float)playersThisGame - (float)1)) / ((float)playersThisGame / (float)2);
+
         public static float GetMalus() => (float)kFactor * (((float)playersThisGame - (float)2) - (float)totalGameExpectative) * (float)-1;
 
         public static List<ulong> GetPlayerAliveList()
@@ -149,9 +149,8 @@ namespace RankMod
                 .ToList();
         }
 
-        public static void UpdateElo(ulong steamId)
+        public static void UpdateElo(ulong steamId, bool sharedRank)
         {
-            // Retrieve player data dynamically
             var playerData = Database._instance?.GetPlayerData(steamId);
 
             if (playerData == null)
@@ -160,36 +159,87 @@ namespace RankMod
                 return;
             }
 
-            // Retrieve Elo and LastElo dynamically with default fallback
             float playerElo = playerData.Properties.TryGetValue("Elo", out var storedElo) && storedElo is float elo
                 ? elo
                 : (playerData.Properties.TryGetValue("LastElo", out var storedLastElo) && storedLastElo is float lastElo ? lastElo : 1000f);
 
-            // Store the current Elo as LastElo before updating
             Database._instance.SetData(steamId, "LastElo", playerElo);
 
-            // Calculate malus
             float malus = GetMalus();
-
             int alivePlayers = GetPlayerAliveList().Count;
-            float rank = alivePlayers;
-            if (rank == 0) return;
+
+            float rank;
+            if (!sharedRank) rank = alivePlayers;
+            else rank = ((float)alivePlayers + 1f) / 2f;
 
             float malusPercent = GetMalusPercent(rank);
+            
 
-            // Calculate new Elo
             float eloGain = kFactor * (1 - (malusPercent * 2) - WinExpectative(playerElo, averageGameElo));
             eloGain += malus * malusPercent;
+
             playerElo = Math.Max(100, playerElo + eloGain);
 
-            // Send update message
             string sign = eloGain >= 0 ? "+" : "";
-            SendPrivateMessage(steamId, $"[top{rank}/{playersThisGame}] [{sign}{eloGain:F1}] --> Your Elo: {playerElo:F1}");
+            SendPrivateMessage(steamId, $"[top{rank}/{playersThisGame}] [{sign}{eloGain:F1}] --> Your Elo: {playerElo:F1} ({RankName.GetRankFromElo(playerElo)})");
 
             // Update Elo in database
             Database._instance.SetData(steamId, "Elo", playerElo);
+            Database._instance.SetData(steamId, "Rank", RankName.GetRankFromElo(playerElo));
         }
 
+
+        public static class RankName
+        {
+            private static readonly SortedDictionary<int, string> EloRanks = new()
+            {
+                { 100, "Clown" },
+                { 800, "Bronze I" },
+                { 850, "Bronze II" },
+                { 900, "Bronze III" },
+                { 950, "Bronze IV" },
+                { 975, "Silver I" },
+                { 1000, "Silver II" },
+                { 1025, "Silver III" },
+                { 1050, "Silver IV" },
+                { 1075, "Gold I" },
+                { 1100, "Gold II" },
+                { 1125, "Gold III" },
+                { 1150, "Gold IV" },
+                { 1170, "Platinum I" },
+                { 1190, "Platinum II" },
+                { 1210, "Platinum III" },
+                { 1230, "Platinum IV" },
+                { 1245, "Diamond I" },
+                { 1260, "Diamond II" },
+                { 1275, "Diamond III" },
+                { 1290, "Diamond IV" },
+                { 1300, "Master I" },
+                { 1310, "Master II" },
+                { 1320, "Master III" },
+                { 1330, "Master IV" },
+                { 1350, "GM I" },
+                { 1370, "GM II" },
+                { 1390, "GM III" },
+                { 1400, "GM IV" },
+                { 2000, "Challenger" },
+            };
+
+            public static string GetRankFromElo(float elo)
+            {
+                string rank = "Unranked"; // Default rank if below the lowest range
+
+                foreach (var entry in EloRanks)
+                {
+                    if (elo >= entry.Key)
+                        rank = entry.Value;
+                    else
+                        break; // Stop checking once we exceed the current Elo range
+                }
+
+                return rank;
+            }
+        }
 
     }
 }

@@ -128,7 +128,7 @@
         {
             Dictionary<string, string> configDefaults = new()
             {
-                {"version", "v1.1.0"},
+                {"version", "v1.1.1"},
                 {"rankedOnStart", "true"},
                 {"initialElo", "1000"},
                 {"kFactor", "32"},
@@ -185,8 +185,14 @@
                     config[key] = value;
                 }
             }
-            parseSuccess = bool.TryParse(config["rankedOnStart"], out bool resultBool);
-            ranked = parseSuccess ? resultBool : true;
+
+            if (configStart)
+            {
+                parseSuccess = bool.TryParse(config["rankedOnStart"], out bool resultBool);
+                ranked = parseSuccess ? resultBool : true;
+
+                configStart = false;
+            }
 
             parseSuccess = float.TryParse(config["initialElo"], out float resultFloat);
             initialElo = parseSuccess ? resultFloat : 1000;
