@@ -9,6 +9,10 @@ namespace RankMod
 
     public class RankSystemManager : MonoBehaviour
     {
+        /// <summary>
+        /// Updates the ranking system state during the game loop.
+        /// Handles Elo updates and player tracking based on game events.
+        /// </summary>
         void Update()
         {
             if (!ranked || !IsHost()) return;
@@ -19,8 +23,21 @@ namespace RankMod
                 {
                     SetGameVariables();
 
-                    foreach (var player in connectedPlayers) SendPrivateMessage(player.Key, $"[RankMod] Avg elo : {(int)averageGameElo} ({RankName.GetRankFromElo(averageGameElo)}) | Players : {playersThisGame}");
-                    
+                    foreach (var player in playersInRanked)
+                    {
+                        var playerData = Database._instance.GetPlayerData(player);
+                        if (playerData != null &&
+                            playerData.Properties.TryGetValue("GamesPlayed", out object gamesPlayedObj))
+                        {
+                            int gamesPlayed = Convert.ToInt32(gamesPlayedObj);
+                            Database._instance.SetData(player, "GamesPlayed", gamesPlayed + 1);
+                        }
+                    }
+
+                    foreach (var player in connectedPlayers)
+                    {
+                        SendPrivateMessage(player.Key, $"[RankMod] Avg elo : {(int)averageGameElo} ({RankName.GetRankFromElo(averageGameElo)}) | Players : {playersThisGame}");
+                    }
                 }
             }
 
@@ -31,24 +48,35 @@ namespace RankMod
                 {
                     try
                     {
-                        if (playersAliveList.Count > 1) UpdateElo(player, true);                    
-                        else UpdateElo(player, false);
+                        UpdateElo(player, playersAliveList.Count > 1);
+
+                        var playerData = Database._instance.GetPlayerData(player);
+                        if (playerData != null &&
+                            playerData.Properties.TryGetValue("Wins", out object winsObj))
+                        {
+                            int wins = Convert.ToInt32(winsObj);
+                            Database._instance.SetData(player, "Wins", wins + 1);
+                        }
 
                         playersInRanked.Remove(player);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Log(logFilePath, $"Error updating Elo for player {player}: {ex.Message}");
+                    }
                 }
 
                 ResetGameVariables();
             }
-
-
-
         }
     }
 
+
     public class RankSystemPatches
     {
+        /// <summary>
+        /// Handles Elo updates when a player dies in a ranked game.
+        /// </summary>
         [HarmonyPatch(typeof(ServerSend), nameof(ServerSend.PlayerDied))]
         [HarmonyPrefix]
         public static void OnServerSendPlayerDiedPre(ref ulong __0, ref ulong __1)
@@ -59,23 +87,31 @@ namespace RankMod
             playersInRanked.Remove(__0);
         }
 
+        /// <summary>
+        /// Handles Elo updates when a player leaves the lobby mid-game.
+        /// </summary>
         [HarmonyPatch(typeof(LobbyManager), nameof(LobbyManager.RemovePlayerFromLobby))]
         [HarmonyPrefix]
         public static void OnLobbyManagerRemovePlayerFromLobbyPre(CSteamID __0)
         {
             if (!gameHasStarted || !playersInRanked.Contains((ulong)__0) || !IsHost() || !ranked) return;
 
-
             UpdateElo((ulong)__0, false);
             playersInRanked.Remove((ulong)__0);
         }
+
     }
 
     public class RankSystemUtility
     {
+        /// <summary>
+        /// Calculates the average Elo of all players in the current game.
+        /// </summary>
         public static float GetAverageGameElo() => playersThisGame > 0 ? CalculateTotalElo() / playersThisGame : 1000;
-        public static bool IsPlayerInactive(Il2CppSystem.Collections.Generic.KeyValuePair<ulong, PlayerManager> player) => player.value.dead || player.value.transform.position == Vector3.zero;
 
+        /// <summary>
+        /// Resets game-related variables at the end of a match.
+        /// </summary>
         public static void ResetGameVariables()
         {
             gameHasStarted = false;
@@ -85,6 +121,9 @@ namespace RankMod
             totalGameExpectative = 0;
         }
 
+        /// <summary>
+        /// Initializes game-related variables at the start of a match.
+        /// </summary>
         public static void SetGameVariables()
         {
             gameHasStarted = true;
@@ -95,6 +134,9 @@ namespace RankMod
             totalGameExpectative = GetTotalGameExpectative();
         }
 
+        /// <summary>
+        /// Calculates the total Elo of all currently alive players.
+        /// </summary>
         public static float CalculateTotalElo()
         {
             return GetPlayerAliveList()
@@ -113,6 +155,9 @@ namespace RankMod
                 .Sum();
         }
 
+        /// <summary>
+        /// Calculates the total expected win probability for all players based on their Elo.
+        /// </summary>
         public static float GetTotalGameExpectative()
         {
             return GetPlayerAliveList()
@@ -132,23 +177,27 @@ namespace RankMod
                 .Sum();
         }
 
+        /// <summary>
+        /// Calculates the probability of a player winning based on their Elo compared to the average game Elo.
+        /// </summary>
+        public static float WinExpectative(float playerElo, float averageGameElo)
+            => 1.0f / (1.0f + (float)Math.Pow(10.0, (averageGameElo - playerElo) / eloScalingFactor));
 
+        /// <summary>
+        /// Calculates the penalty percentage based on the player's ranking position in the game.
+        /// </summary>
+        public static float GetMalusPercent(float rank)
+            => ((rank - 1f) / (playersThisGame - 1f)) / (playersThisGame / 2f);
 
-        public static float WinExpectative(float playerElo, float averageGameElo) => 1.0f / (1.0f + (float)Math.Pow(10.0, (averageGameElo - playerElo) / eloScalingFactor));
-        public static float GetMalusPercent(float rank) => ((rank - (float)1) / ((float)playersThisGame - (float)1)) / ((float)playersThisGame / (float)2);
+        /// <summary>
+        /// Calculates the malus (penalty) applied to Elo gain based on game expectations.
+        /// </summary>
+        public static float GetMalus()
+            => kFactor * ((playersThisGame - 2f) - totalGameExpectative) * -1f;
 
-        public static float GetMalus() => (float)kFactor * (((float)playersThisGame - (float)2) - (float)totalGameExpectative) * (float)-1;
-
-        public static List<ulong> GetPlayerAliveList()
-        {
-            return connectedPlayers
-                .Where(player => player.Value != null
-                              && !player.Value.dead
-                              && player.Value.transform.position != Vector3.zero)
-                .Select(player => player.Value.steamProfile.m_SteamID)
-                .ToList();
-        }
-
+        /// <summary>
+        /// Updates a player's Elo based on their ranking and whether they shared the rank with others.
+        /// </summary>
         public static void UpdateElo(ulong steamId, bool sharedRank)
         {
             var playerData = Database._instance?.GetPlayerData(steamId);
@@ -168,12 +217,8 @@ namespace RankMod
             float malus = GetMalus();
             int alivePlayers = GetPlayerAliveList().Count;
 
-            float rank;
-            if (!sharedRank) rank = alivePlayers;
-            else rank = ((float)alivePlayers + 1f) / 2f;
-
+            float rank = sharedRank ? ((float)alivePlayers + 1f) / 2f : alivePlayers;
             float malusPercent = GetMalusPercent(rank);
-            
 
             float eloGain = kFactor * (1 - (malusPercent * 2) - WinExpectative(playerElo, averageGameElo));
             eloGain += malus * malusPercent;
@@ -187,7 +232,6 @@ namespace RankMod
             Database._instance.SetData(steamId, "Elo", playerElo);
             Database._instance.SetData(steamId, "Rank", RankName.GetRankFromElo(playerElo));
         }
-
 
         public static class RankName
         {
@@ -225,6 +269,9 @@ namespace RankMod
                 { 2000, "Challenger" },
             };
 
+            /// <summary>
+            /// Retrieves the player's rank based on their Elo rating.
+            /// </summary>
             public static string GetRankFromElo(float elo)
             {
                 string rank = "Unranked"; // Default rank if below the lowest range

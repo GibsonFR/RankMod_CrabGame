@@ -2,6 +2,9 @@
 {
     public class DatabaseManager : MonoBehaviour
     {
+        /// <summary>
+        /// Initializes the database manager and ensures data is saved each round.
+        /// </summary>
         void Awake()
         {
             if (!IsHost()) return;
@@ -22,10 +25,7 @@
         }
 
         /// <summary>
-        /// Converts lines of the old format (3 parts: SteamID|Username|Elo)
-        /// into the new format (SteamID|Username:XXX|Elo:YYY).
-        /// If a line does NOT have exactly 3 parts, it's left untouched.
-        /// This does NOT add LastElo or other properties.
+        /// Converts old database format (SteamID|Username|Elo) to the new format (SteamID|Username:XXX|Elo:YYY).
         /// </summary>
         public static void ConvertOldDataFile(string _filePath)
         {
@@ -38,14 +38,13 @@
             {
                 var parts = line.Split('|');
 
-                // Detect old format: exactly 3 parts => SteamID | Username | Elo
+                // Detect old format: exactly 3 parts (SteamID | Username | Elo)
                 if (parts.Length == 3 && ulong.TryParse(parts[0], out ulong steamId))
                 {
-                    // The second element is the username
                     string username = parts[1];
-                    // The third element is the elo
+
                     if (!float.TryParse(parts[2], out float elo))
-                        elo = 1000f;
+                        elo = 1000f; // Default Elo if parsing fails
 
                     // Rewrite to new format
                     string convertedLine = $"{steamId}|Username:{username}|Elo:{elo}";
@@ -53,7 +52,7 @@
                 }
                 else
                 {
-                    // Keep lines that are already new format or otherwise not 3 parts
+                    // Keep already converted or irregular lines as they are
                     newLines.Add(line);
                 }
             }
@@ -61,10 +60,9 @@
             File.WriteAllLines(_filePath, newLines);
         }
 
-
         /// <summary>
-        /// Updates the database file directly by ensuring that all default properties exist
-        /// and removing outdated properties. This is called BEFORE LoadFromFile().
+        /// Ensures that all player records in the database contain the required properties.
+        /// Adds missing properties and removes outdated ones to maintain consistency.
         /// </summary>
         public static void UpdateProperties(string _filePath)
         {
@@ -77,10 +75,9 @@
             foreach (var line in lines)
             {
                 var parts = line.Split('|');
-                if (parts.Length < 2) continue; 
+                if (parts.Length < 2) continue;
 
-                ulong clientId;
-                if (!ulong.TryParse(parts[0], out clientId)) continue; 
+                if (!ulong.TryParse(parts[0], out ulong clientId)) continue;
 
                 // Convert existing properties into a dictionary
                 var playerProperties = new Dictionary<string, string>();
@@ -94,7 +91,7 @@
                     }
                 }
 
-                // Ensure all default properties exist
+                // Ensure all required properties exist
                 foreach (var kvp in PlayerData.DefaultProperties)
                 {
                     if (!playerProperties.ContainsKey(kvp.Key))
@@ -104,7 +101,7 @@
                     }
                 }
 
-                // Remove properties that are no longer in the default set
+                // Remove outdated properties
                 var propertiesToRemove = playerProperties.Keys.Except(PlayerData.DefaultProperties.Keys).ToList();
                 foreach (var prop in propertiesToRemove)
                 {
@@ -123,22 +120,8 @@
             }
         }
 
-
-
         /// <summary>
-        /// Inserts or updates a player's data in the database.
-        /// </summary>
-        public void InsertOrUpdatePlayerData(PlayerData playerData)
-        {
-            _database.AddOrUpdate(playerData.ClientId, playerData, (key, existingPlayer) =>
-            {
-                existingPlayer.Properties = playerData.Properties;
-                return existingPlayer;
-            });
-        }
-
-        /// <summary>
-        /// Updates a specific property of a player.
+        /// Updates a specific property of a player in the database.
         /// </summary>
         public bool SetData(ulong playerId, string propertyName, object newValue)
         {
@@ -206,6 +189,7 @@
             }
         }
 
+
         /// <summary>
         /// Loads player data from a file and returns a concurrent dictionary.
         /// </summary>
@@ -267,7 +251,9 @@
             { "Username", "Unknown" },
             { "Elo", 1000f },
             { "LastElo", 1000f },
-            { "Rank", "Unranked" }
+            { "Rank", "Unranked" },
+            { "GamesPlayed", 0 },
+            { "Wins", 0 },
         };
 
         public PlayerData()

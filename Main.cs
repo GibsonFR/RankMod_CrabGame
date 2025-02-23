@@ -11,6 +11,10 @@ namespace RankMod
     public class MainManager : MonoBehaviour
     {
         float elapsed = 0f;
+
+        /// <summary>
+        /// Periodically reads the configuration file to ensure up-to-date settings.
+        /// </summary>
         void FixedUpdate()
         {
             elapsed += Time.deltaTime;
@@ -25,42 +29,69 @@ namespace RankMod
 
     public class MainPatches
     {
+        /// <summary>
+        /// Retrieves and sets the Steam ID of the mod owner when SteamManager initializes.
+        /// </summary>
         [HarmonyPatch(typeof(SteamManager), nameof(SteamManager.Awake))]
         [HarmonyPostfix]
         public static void OnSteamManagerAwakePost(SteamManager __instance)
         {
-            if (clientId < 1) clientId = (ulong)__instance.field_Private_CSteamID_0; // Get&Set the steamId of the mod owner
+            if (clientId < 1)
+            {
+                clientId = (ulong)__instance.field_Private_CSteamID_0;
+            }
         }
 
+        /// <summary>
+        /// Adds a player to the connected players list and initializes their data when they join the lobby.
+        /// </summary>
         [HarmonyPatch(typeof(LobbyManager), nameof(LobbyManager.AddPlayerToLobby))]
         [HarmonyPostfix]
         public static void OnLobbyManagerAddPlayerToLobbyPost(CSteamID __0)
         {
             ulong steamId = (ulong)__0;
 
-            if (!connectedPlayers.ContainsKey(steamId)) connectedPlayers.Add(steamId, null);
+            if (!connectedPlayers.ContainsKey(steamId))
+            {
+                connectedPlayers.Add(steamId, null);
+            }
 
             CreatePlayerData(steamId);
         }
 
+        /// <summary>
+        /// Removes a player from the connected players list when they leave the lobby.
+        /// </summary>
         [HarmonyPatch(typeof(LobbyManager), nameof(LobbyManager.RemovePlayerFromLobby))]
         [HarmonyPrefix]
         public static void OnLobbyManagerRemovePlayerFromLobbyPre(CSteamID __0)
         {
             ulong steamId = (ulong)__0;
 
-            if (connectedPlayers.ContainsKey(steamId)) connectedPlayers.Remove(steamId);
+            if (connectedPlayers.ContainsKey(steamId))
+            {
+                connectedPlayers.Remove(steamId);
+            }
         }
 
+        /// <summary>
+        /// Updates the player's reference in the connected players list when they spawn in the game.
+        /// </summary>
         [HarmonyPatch(typeof(GameManager), nameof(GameManager.SpawnPlayer))]
         [HarmonyPostfix]
         public static void OnGameManagerSpawnPlayerPost(ulong __0)
-        {          
-            if (connectedPlayers.ContainsKey(__0)) connectedPlayers[__0] = GetPlayerManagerFromSteamId(__0);            
+        {
+            if (connectedPlayers.ContainsKey(__0))
+            {
+                connectedPlayers[__0] = GetPlayerManagerFromSteamId(__0);
+            }
         }
     }
     public class MainUtility
     {
+        /// <summary>
+        /// Creates a new player entry in the database if it does not already exist.
+        /// </summary>
         public static void CreatePlayerData(ulong steamId)
         {
             // Use the shared DatabaseManager instance

@@ -18,9 +18,13 @@ global using static RankMod.Utility;
 
 namespace RankMod
 {
-    [BepInPlugin("D8E1467C-3801-44A2-B081-9D40D920778F", "RankMod", "1.1.1")]
+    [BepInPlugin("D8E1467C-3801-44A2-B081-9D40D920778F", "RankMod", "1.1.2")]
     public class Plugin : BasePlugin
     {
+        /// <summary>
+        /// Initializes and loads the RankMod plugin.
+        /// Sets up necessary folders, files, database migrations, and patches for the mod.
+        /// </summary>
         public override void Load()
         {
             ClassInjector.RegisterTypeInIl2Cpp<MainManager>();
@@ -31,7 +35,7 @@ namespace RankMod
             Harmony harmony = new("gibson.rank");
             harmony.PatchAll(typeof(MainPatches));
             harmony.PatchAll(typeof(RankSystemPatches));
-            harmony.PatchAll(typeof(CommandPatchs));
+            harmony.PatchAll(typeof(CommandPatches));
 
             CreateFolder(mainFolderPath);
             CreateFolder(playersDataFolderPath);
@@ -49,6 +53,11 @@ namespace RankMod
             Log.LogInfo("Mod created by Gibson, discord : gib_son, github : GibsonFR");
         }
 
+
+        /// <summary>
+        /// Patches the GameUI Awake method to inject RankMod components into the game's UI hierarchy.
+        /// Ensures that essential managers are properly instantiated when the UI loads.
+        /// </summary>
         [HarmonyPatch(typeof(GameUI), nameof(GameUI.Awake))]
         [HarmonyPostfix]
         public static void UIAwakePatch(GameUI __instance)
@@ -61,7 +70,9 @@ namespace RankMod
             pluginObj.AddComponent<RankSystemManager>();
         }
 
-        //Anticheat Bypass 
+        /// <summary>
+        /// Anticheat Bypass.
+        /// <summary>
         [HarmonyPatch(typeof(EffectManager), "Method_Private_Void_GameObject_Boolean_Vector3_Quaternion_0")]
         [HarmonyPatch(typeof(LobbyManager), "Method_Private_Void_0")]
         [HarmonyPatch(typeof(MonoBehaviourPublicVesnUnique), "Method_Private_Void_0")]
