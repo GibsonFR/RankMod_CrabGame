@@ -10,7 +10,7 @@ A ranked Elo system mod for Crab Game.
 - **Full support for mods like TagMod and Infection** (multi-ranking adjustments).
 - **Leaderboard system** to track top players.
 - **Optimized performance** and improved ranked matchmaking.
-- **Customizable chat commands** (`.elo`, `.ranked`, `.help`, `.lastElo`, `.dev`, `.leaderboard`).
+- **Customizable chat commands** (`.elo`, `.ranked`, `.help`, `.lastElo`, `.dev`, `.leaderboard`, `.win`).
 
 **Note:**  
 The Elo system is based on `"Playing"` and `"GameOver"` states, ranking players according to their elimination order. Mods that modify these aspects may cause compatibility issues.
@@ -31,7 +31,7 @@ The Elo system is based on `"Playing"` and `"GameOver"` states, ranking players 
 - **`.lastElo [player]`** → Restores a player's last Elo (`*` restores for all players).
 - **`.dev`** → Displays developer information.
 - **`.leaderboard`** → Shows the top-ranked players.
-- - **`.win`** → Shows winrate%.
+- **`.win`** → Shows winrate%.
 
 ---
 
