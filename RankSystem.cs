@@ -22,6 +22,7 @@ namespace RankMod
                 if (!gameHasStarted)
                 {
                     SetGameVariables();
+                    AdjustEloScalingFactor();
 
                     foreach (var player in playersInRanked)
                     {
@@ -36,7 +37,7 @@ namespace RankMod
 
                     foreach (var player in connectedPlayers)
                     {
-                        SendPrivateMessage(player.Key, $"[RankMod] Avg elo : {(int)averageGameElo} ({RankName.GetRankFromElo(averageGameElo)}) | Players : {playersThisGame}");
+                        SendPrivateMessage(player.Key, $"[RankMod] Avg elo : {(int)averageGameElo} ({RankName.GetRankFromElo(averageGameElo)}) | Players: {playersThisGame}");
                     }
                 }
             }
@@ -104,6 +105,27 @@ namespace RankMod
 
     public class RankSystemUtility
     {
+        /// <summary>
+        /// Adjusts eloScalingFactor to ensure the highest Elo player does not lose Elo in case of a shared victory.
+        /// Uses the worst-case scenario (max winners).
+        /// </summary>
+        public static void AdjustEloScalingFactor()
+        {
+            // Step 1: Find the highest Elo in the game
+            float highestElo = playersInRanked
+                .Select(id => Database._instance.GetPlayerData(id))
+                .Where(playerData => playerData != null)
+                .Max(playerData => playerData.Properties.TryGetValue("Elo", out object elo) && elo is float e ? e : 1000f);
+
+            int expectedWinners = playersThisGame - 1;
+            float expectedRank = (1 + expectedWinners) / 2f; 
+
+            float adjustedEloScalingFactor = (averageGameElo - highestElo) / (float)Math.Log10((((expectedRank - 1f) / (playersThisGame - 1f)) / (playersThisGame / 2f) * (playersThisGame - totalGameExpectative)) / (1 - (((expectedRank - 1f) / (playersThisGame - 1f)) / (playersThisGame / 2f) * (playersThisGame - totalGameExpectative))));
+
+            if (adjustedEloScalingFactor > eloScalingFactor) eloScalingFactor = adjustedEloScalingFactor;
+
+        }
+
         /// <summary>
         /// Calculates the average Elo of all players in the current game.
         /// </summary>

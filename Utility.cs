@@ -226,7 +226,7 @@
             {
                 Dictionary<string, string> configDefaults = new()
                 {
-                    {"version", "v1.1.2"},
+                    {"version", "v1.1.3"},
                     {"rankedOnStart", "true"},
                     {"initialElo", "1000"},
                     {"kFactor", "32"},

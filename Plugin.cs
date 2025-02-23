@@ -18,7 +18,7 @@ global using static RankMod.Utility;
 
 namespace RankMod
 {
-    [BepInPlugin("D8E1467C-3801-44A2-B081-9D40D920778F", "RankMod", "1.1.2")]
+    [BepInPlugin("D8E1467C-3801-44A2-B081-9D40D920778F", "RankMod", "1.1.3")]
     public class Plugin : BasePlugin
     {
         /// <summary>

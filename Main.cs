@@ -10,20 +10,12 @@ namespace RankMod
 
     public class MainManager : MonoBehaviour
     {
-        float elapsed = 0f;
-
         /// <summary>
-        /// Periodically reads the configuration file to ensure up-to-date settings.
+        /// Reads the configuration file to ensure up-to-date settings each Round.
         /// </summary>
-        void FixedUpdate()
+        void Awake()
         {
-            elapsed += Time.deltaTime;
-
-            if (elapsed > 3f)
-            {
-                elapsed = 0f;
-                ReadConfigFile();
-            }
+            ReadConfigFile();
         }
     }
 
