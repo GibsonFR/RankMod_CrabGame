@@ -31,6 +31,7 @@ The Elo system is based on `"Playing"` and `"GameOver"` states, ranking players 
 - **`.lastElo [player]`** → Restores a player's last Elo (`*` restores for all players).
 - **`.dev`** → Displays developer information.
 - **`.leaderboard`** → Shows the top-ranked players.
+- - **`.win`** → Shows winrate%.
 
 ---
 
@@ -55,14 +56,12 @@ The Elo system is based on `"Playing"` and `"GameOver"` states, ranking players 
 ---
 
 ## Upcoming Features
-- **More detailed player statistics** (win/loss ratio, performance graphs).
-- **Enhanced matchmaking mechanics** for ranked mode.
-- **UI improvements** to display Elo and rank in-game.
+- **Discord integration** To update leaderboard in real time on discord channel.
 
 ---
 
 ## Known Issues
-- Elo updates may not work correctly if two players die at the exact same time.
+- ?
 
 ---
 
